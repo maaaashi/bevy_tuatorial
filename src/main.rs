@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*};
 
 #[derive(Component)]
 struct Player;
@@ -12,12 +12,11 @@ fn setup(mut commands: Commands) {
             custom_size: Some(Vec2::new(50.0, 50.0)),
             color: Color::srgb(1.0, 1.0, 1.0),
             ..default()
-        },
-        Transform::default()
+        }
     ));
 }
 
-fn displacement (dash: bool, secs: f32) -> f32 {
+fn distance (dash: bool, secs: f32) -> f32 {
     let mut speed = 200.0;
 
     if dash { speed *= 2.0 }
@@ -30,25 +29,18 @@ fn move_player(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Player>>
 ) {
+    let mut direction = Vec2::ZERO;
+    if keys.pressed(KeyCode::ArrowRight) { direction.x += 1.0; }
+    if keys.pressed(KeyCode::ArrowLeft) { direction.x -= 1.0; }
+    if keys.pressed(KeyCode::ArrowUp) { direction.y += 1.0; }
+    if keys.pressed(KeyCode::ArrowDown) { direction.y -= 1.0; }
+
+    let Some(direction) = direction.try_normalize() else { return };
+
     let dash = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    let secs = time.delta_secs();
 
     for mut transform in &mut query {
-        if keys.pressed(KeyCode::ArrowRight) {
-            transform.translation.x += displacement(dash, secs);
-        }
-
-        if keys.pressed(KeyCode::ArrowLeft) {
-            transform.translation.x -= displacement(dash, secs);
-        }
-
-        if keys.pressed(KeyCode::ArrowUp) {
-            transform.translation.y += displacement(dash, secs);
-        }
-
-        if keys.pressed(KeyCode::ArrowDown) {
-            transform.translation.y -= displacement(dash, secs);
-        }
+        transform.translation += (direction * distance(dash, time.delta_secs())).extend(0.0)
     }
 }
 
