@@ -17,26 +17,37 @@ fn setup(mut commands: Commands) {
     ));
 }
 
+fn displacement (dash: bool, secs: f32) -> f32 {
+    let mut speed = 200.0;
+
+    if dash { speed *= 2.0 }
+
+    return speed * secs;
+}
+
 fn move_player(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Player>>
 ) {
+    let dash = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let secs = time.delta_secs();
+
     for mut transform in &mut query {
         if keys.pressed(KeyCode::ArrowRight) {
-            transform.translation.x += 200.0 * time.delta_secs()
+            transform.translation.x += displacement(dash, secs);
         }
 
         if keys.pressed(KeyCode::ArrowLeft) {
-            transform.translation.x -= 200.0 * time.delta_secs()
+            transform.translation.x -= displacement(dash, secs);
         }
 
         if keys.pressed(KeyCode::ArrowUp) {
-            transform.translation.y += 200.0 * time.delta_secs()
+            transform.translation.y += displacement(dash, secs);
         }
 
         if keys.pressed(KeyCode::ArrowDown) {
-            transform.translation.y -= 200.0 * time.delta_secs()
+            transform.translation.y -= displacement(dash, secs);
         }
     }
 }
