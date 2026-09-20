@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+const PLAYER_SIZE: Vec2 = Vec2::new(50.0, 50.0);
+
 #[derive(Component)]
 struct Player;
 
@@ -18,15 +20,20 @@ impl Speed {
 #[derive(Component, Default)]
 struct Velocity(Vec2);
 
+#[derive(Component)]
+struct Collider {
+    half_size: Vec2,
+}
+
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d::default());
-
     commands.spawn((
         Player,
         Speed { base: 200.0, dash_multiplier: 2.0 },
         Velocity::default(),
+        Collider { half_size: PLAYER_SIZE / 2.0 },
         Sprite {
-            custom_size: Some(Vec2::new(50.0, 50.0)),
+            custom_size: Some(PLAYER_SIZE),
             color: Color::srgb(1.0, 1.0, 1.0),
             ..default()
         }
@@ -58,10 +65,32 @@ fn apply_velocity(time: Res<Time>, mut query: Query<(&mut Transform, &Velocity)>
     }
 }
 
+fn clamp_to_screen(
+    camera: Single<(&Projection, &GlobalTransform), With<Camera2d>>,
+    mut query: Query<(&mut Transform, &Collider)>,
+) {
+    let (projection, camera_transform) = *camera;
+    let Projection::Orthographic(ortho) = projection else {
+        return;
+    };
+
+    let center = camera_transform.translation().truncate();
+    let view_min = center + ortho.area.min;
+    let view_max = center + ortho.area.max;
+
+    for (mut transform, collider) in &mut query {
+        let min = (view_min + collider.half_size).min(center);
+        let max = (view_max - collider.half_size).max(center);
+
+        transform.translation.x = transform.translation.x.clamp(min.x, max.x);
+        transform.translation.y = transform.translation.y.clamp(min.y, max.y);
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (player_input, apply_velocity).chain())
+        .add_systems(Update, (player_input, apply_velocity, clamp_to_screen).chain())
         .run();
 }
