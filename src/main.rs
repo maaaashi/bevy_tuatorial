@@ -12,10 +12,13 @@ struct Speed {
 }
 
 impl Speed {
-    fn current(&self, dash: bool) -> f32 {
-        if dash { self.base * self.dash_multiplier } else { self.base }
+    fn current(&self, dashing: bool) -> f32 {
+        if dashing { self.base * self.dash_multiplier } else { self.base }
     }
 }
+
+#[derive(Component)]
+struct Dashing;
 
 #[derive(Component, Default)]
 struct Velocity(Vec2);
@@ -40,9 +43,25 @@ fn setup(mut commands: Commands) {
     ));
 }
 
+fn dash_input(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    query: Query<(Entity, Has<Dashing>), With<Player>>
+) {
+    let dash = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+
+    for (entity, dashing) in &query {
+        match (dash, dashing) {
+            (true, false) => { commands.entity(entity).insert(Dashing); }
+            (false, true) => { commands.entity(entity).remove::<Dashing>(); }
+            _ => {}
+        }
+    }
+}
+
 fn player_input(
     keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&Speed, &mut Velocity), With<Player>>
+    mut query: Query<(&Speed, &mut Velocity, Has<Dashing>), With<Player>>
 ) {
     let mut direction = Vec2::ZERO;
     if keys.pressed(KeyCode::ArrowRight) { direction.x += 1.0; }
@@ -51,10 +70,9 @@ fn player_input(
     if keys.pressed(KeyCode::ArrowDown) { direction.y -= 1.0; }
 
     let direction = direction.normalize_or_zero();
-    let dash = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
 
-    for (speed, mut velocity) in &mut query {
-        velocity.0 = direction * speed.current(dash);
+    for (speed, mut velocity, dashing) in &mut query {
+        velocity.0 = direction * speed.current(dashing);
     }
 }
 
@@ -91,6 +109,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (player_input, apply_velocity, clamp_to_screen).chain())
+        .add_systems(Update, (dash_input, player_input, apply_velocity, clamp_to_screen).chain())
         .run();
 }
